@@ -66,7 +66,7 @@
   const SUPABASE_URL = 'https://iogkvgachxddzcylwxgw.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvZ2t2Z2FjaHhkZHpjeWx3eGd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NzMxOTksImV4cCI6MjA4NTQ0OTE5OX0.BTDsqlVTG4etbjGhXz3hIwBj6MERUhh5nynpsz-4sis';
   // La MISMA site key de Turnstile que usas en el login del landing (Cloudflare → Turnstile).
-  const TURNSTILE_SITE_KEY = '0x4AAAAAAFNGuOasfKfqlHKx';
+  const TURNSTILE_SITE_KEY =  '0x4AAAAAAFNGuOasfKfqlHKx';
 </script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 
@@ -222,10 +222,13 @@
   }
 
   async function loadTables() {
-    const [{ data: demos }, { data: signups }] = await Promise.all([
+    const [demoRes, signupRes] = await Promise.all([
       sb.rpc('admin_demo_list', { p_limit: 200 }),
       sb.rpc('admin_signups_list', { p_limit: 200 }),
     ]);
+    const demos = demoRes.data, signups = signupRes.data;
+    if (signupRes.error) console.error('admin_signups_list:', signupRes.error.message);
+    if (demoRes.error) console.error('admin_demo_list:', demoRes.error.message);
 
     $('demoRows').innerHTML = (demos || []).map(d => `
       <tr>
@@ -256,7 +259,7 @@
         <td>${b.is_trial ? 'Sí' : 'No'}</td>
         <td>${b.whatsapp ? `<a href="https://wa.me/${waDigits(b.whatsapp)}" target="_blank">${esc(b.whatsapp)}</a>` : '—'}</td>
         <td>${esc(b.country)}</td>
-      </tr>`).join('') || '<tr><td colspan="7" class="muted">Sin registros aún.</td></tr>';
+      </tr>`).join('') || `<tr><td colspan="7" class="muted">${signupRes.error ? 'Error: ' + esc(signupRes.error.message) : 'Sin registros aún.'}</td></tr>`;
 
     document.querySelectorAll('select.setup').forEach(sel => {
       sel.addEventListener('change', async (e) => {
