@@ -64,8 +64,11 @@
 <!-- ======= CONFIG: completa estos dos valores ======= -->
 <script>
   const SUPABASE_URL = 'https://iogkvgachxddzcylwxgw.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvZ2t2Z2FjaHhkZHpjeWx3eGd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NzMxOTksImV4cCI6MjA4NTQ0OTE5OX0.BTDsqlVTG4etbjGhXz3hIwBj6MERUhh5nynpsz-4sis';
+  const SUPABASE_ANON_KEY = 'PEGA_AQUI_TU_ANON_KEY';
+  // La MISMA site key de Turnstile que usas en el login del landing (Cloudflare → Turnstile).
+  const TURNSTILE_SITE_KEY = 'PEGA_TU_TURNSTILE_SITE_KEY';
 </script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 
 <div class="wrap">
   <!-- LOGIN -->
@@ -74,6 +77,7 @@
     <p class="muted" style="margin:0;font-size:13px">Inicia sesión con tu cuenta de administrador.</p>
     <div class="field"><label>Correo</label><input id="email" type="email" placeholder="tu@correo.com" /></div>
     <div class="field"><label>Contraseña</label><input id="password" type="password" placeholder="••••••••" /></div>
+    <div id="ts-widget" style="margin-top:14px"></div>
     <div id="loginErr" class="err hidden"></div>
     <button id="loginBtn" class="btn" style="width:100%;margin-top:18px">Entrar</button>
   </div>
@@ -131,19 +135,52 @@
   const waDigits = (w) => String(w||'').replace(/[^\d]/g,'');
   const STATUSES = ['nuevo','contactado','convertido','descartado'];
 
+  // ── Turnstile (captcha de Supabase) ──
+  const CAPTCHA_ON = TURNSTILE_SITE_KEY && !TURNSTILE_SITE_KEY.includes('PEGA');
+  let captchaToken = '';
+  let tsWidgetId = null;
+  function renderTurnstile() {
+    if (!CAPTCHA_ON) return;
+    const el = $('ts-widget');
+    const doRender = () => {
+      if (!window.turnstile || !el) { setTimeout(doRender, 200); return; }
+      if (tsWidgetId !== null) return;
+      tsWidgetId = window.turnstile.render(el, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (t) => { captchaToken = t; },
+        'expired-callback': () => { captchaToken = ''; },
+        'error-callback': () => { captchaToken = ''; },
+      });
+    };
+    doRender();
+  }
+  function resetTurnstile() {
+    captchaToken = '';
+    try { if (window.turnstile && tsWidgetId !== null) window.turnstile.reset(tsWidgetId); } catch (e) {}
+  }
+
   async function init() {
     const { data } = await sb.auth.getSession();
-    if (data && data.session) showDashboard();
+    if (data && data.session) { showDashboard(); return; }
+    renderTurnstile();
   }
 
   async function login() {
     $('loginErr').classList.add('hidden');
     const email = $('email').value.trim();
     const password = $('password').value;
+    if (CAPTCHA_ON && !captchaToken) { showLoginErr('Espera a que termine la verificación anti-bot e intenta de nuevo.'); return; }
     $('loginBtn').textContent = 'Entrando…'; $('loginBtn').disabled = true;
-    const { error } = await sb.auth.signInWithPassword({ email, password });
+    const { error } = await sb.auth.signInWithPassword({
+      email, password,
+      options: CAPTCHA_ON ? { captchaToken } : undefined,
+    });
     $('loginBtn').textContent = 'Entrar'; $('loginBtn').disabled = false;
-    if (error) { showLoginErr('Correo o contraseña incorrectos.'); return; }
+    if (error) {
+      showLoginErr(/captcha/i.test(error.message) ? 'Falló la verificación anti-bot, intenta de nuevo.' : 'Correo o contraseña incorrectos.');
+      resetTurnstile();
+      return;
+    }
     showDashboard();
   }
   function showLoginErr(msg){ const e=$('loginErr'); e.textContent=msg; e.classList.remove('hidden'); }
