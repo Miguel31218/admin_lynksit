@@ -49,6 +49,8 @@
   th, td { text-align:left; padding:10px 10px; border-bottom:1px solid rgba(255,255,255,.08); }
   th { color:var(--sub); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; }
   td a { color:#8E9BFF; text-decoration:none; }
+  a.editlink { font-weight:700; white-space:nowrap; }
+  a.editlink:hover { text-decoration:underline; }
   .tbl-scroll { overflow-x:auto; }
   select.status, select.setup { background:rgba(255,255,255,.06); color:#fff; border:1px solid var(--bd); border-radius:8px; padding:6px 8px; font-size:12.5px; text-transform:capitalize; }
   .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:700; }
@@ -66,7 +68,7 @@
   const SUPABASE_URL = 'https://iogkvgachxddzcylwxgw.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvZ2t2Z2FjaHhkZHpjeWx3eGd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4NzMxOTksImV4cCI6MjA4NTQ0OTE5OX0.BTDsqlVTG4etbjGhXz3hIwBj6MERUhh5nynpsz-4sis';
   // La MISMA site key de Turnstile que usas en el login del landing (Cloudflare → Turnstile).
-  const TURNSTILE_SITE_KEY =  '0x4AAAAAAFNGuOasfKfqlHKx';
+  const TURNSTILE_SITE_KEY = '0x4AAAAAAFNGuOasfKfqlHKx';
 </script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 
@@ -118,7 +120,7 @@
       <h2>Registros recientes</h2>
       <div class="tbl-scroll">
         <table>
-          <thead><tr><th>Fecha</th><th>Negocio</th><th>Plan</th><th>Setup</th><th>Trial</th><th>WhatsApp</th><th>País</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Negocio</th><th>Plan</th><th>Setup</th><th>Trial</th><th>WhatsApp</th><th>País</th><th>Editar</th></tr></thead>
           <tbody id="signupRows"></tbody>
         </table>
       </div>
@@ -135,6 +137,7 @@
   const waDigits = (w) => String(w||'').replace(/[^\d]/g,'');
   const STATUSES = ['nuevo','contactado','convertido','descartado'];
   const SETUP_TIERS = ['basico','custom'];
+  const APP_URL = 'https://app.lynksit.com'; // dominio del dashboard (editor)
 
   // ── Turnstile (captcha de Supabase) ──
   const CAPTCHA_ON = TURNSTILE_SITE_KEY && !TURNSTILE_SITE_KEY.includes('PEGA');
@@ -259,7 +262,8 @@
         <td>${b.is_trial ? 'Sí' : 'No'}</td>
         <td>${b.whatsapp ? `<a href="https://wa.me/${waDigits(b.whatsapp)}" target="_blank">${esc(b.whatsapp)}</a>` : '—'}</td>
         <td>${esc(b.country)}</td>
-      </tr>`).join('') || `<tr><td colspan="7" class="muted">${signupRes.error ? 'Error: ' + esc(signupRes.error.message) : 'Sin registros aún.'}</td></tr>`;
+        <td><a href="${APP_URL}/admin-design?business=${b.id}" target="_blank" class="editlink">✏️ Editar</a></td>
+      </tr>`).join('') || `<tr><td colspan="8" class="muted">${signupRes.error ? 'Error: ' + esc(signupRes.error.message) : 'Sin registros aún.'}</td></tr>`;
 
     document.querySelectorAll('select.setup').forEach(sel => {
       sel.addEventListener('change', async (e) => {
