@@ -50,7 +50,7 @@
   th { color:var(--sub); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; }
   td a { color:#8E9BFF; text-decoration:none; }
   .tbl-scroll { overflow-x:auto; }
-  select.status { background:rgba(255,255,255,.06); color:#fff; border:1px solid var(--bd); border-radius:8px; padding:6px 8px; font-size:12.5px; }
+  select.status, select.setup { background:rgba(255,255,255,.06); color:#fff; border:1px solid var(--bd); border-radius:8px; padding:6px 8px; font-size:12.5px; text-transform:capitalize; }
   .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:700; }
   .pill.free { background:rgba(255,255,255,.1); color:#cbd0f5; }
   .pill.pago { background:rgba(86,104,239,.22); color:#b9c2ff; }
@@ -118,7 +118,7 @@
       <h2>Registros recientes</h2>
       <div class="tbl-scroll">
         <table>
-          <thead><tr><th>Fecha</th><th>Negocio</th><th>Plan</th><th>Trial</th><th>WhatsApp</th><th>País</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Negocio</th><th>Plan</th><th>Setup</th><th>Trial</th><th>WhatsApp</th><th>País</th></tr></thead>
           <tbody id="signupRows"></tbody>
         </table>
       </div>
@@ -134,6 +134,7 @@
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'2-digit' }) : '—';
   const waDigits = (w) => String(w||'').replace(/[^\d]/g,'');
   const STATUSES = ['nuevo','contactado','convertido','descartado'];
+  const SETUP_TIERS = ['basico','custom'];
 
   // ── Turnstile (captcha de Supabase) ──
   const CAPTCHA_ON = TURNSTILE_SITE_KEY && !TURNSTILE_SITE_KEY.includes('PEGA');
@@ -251,10 +252,19 @@
         <td>${fmtDate(b.created_at)}</td>
         <td>${esc(b.name)}</td>
         <td><span class="pill ${b.plan==='free'?'free':'pago'}">${esc(b.plan)}</span></td>
+        <td><select class="setup" data-id="${b.id}">${SETUP_TIERS.map(t => `<option value="${t}" ${(b.setup_tier||'basico')===t?'selected':''}>${t}</option>`).join('')}</select></td>
         <td>${b.is_trial ? 'Sí' : 'No'}</td>
         <td>${b.whatsapp ? `<a href="https://wa.me/${waDigits(b.whatsapp)}" target="_blank">${esc(b.whatsapp)}</a>` : '—'}</td>
         <td>${esc(b.country)}</td>
-      </tr>`).join('') || '<tr><td colspan="6" class="muted">Sin registros aún.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="7" class="muted">Sin registros aún.</td></tr>';
+
+    document.querySelectorAll('select.setup').forEach(sel => {
+      sel.addEventListener('change', async (e) => {
+        const id = e.target.getAttribute('data-id');
+        const { error } = await sb.rpc('admin_set_setup_tier', { p_business_id: id, p_tier: e.target.value });
+        if (error) { alert('No se pudo cambiar el setup: ' + error.message); }
+      });
+    });
   }
 
   $('loginBtn').addEventListener('click', login);
